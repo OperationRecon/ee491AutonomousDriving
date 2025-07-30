@@ -17,18 +17,18 @@ epoch = 0
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.set_default_device(device)
 
-EPOCHS = 40
-TARGET_UPDATE_FREQUENCY = 18
+EPOCHS = 20
+TARGET_UPDATE_FREQUENCY = 50
 SAMPLE_SIZE = 2000
-BATCH_SIZE = 400
+BATCH_SIZE = 500
 BUFFER_SIZE = 10000
 OBSERVATION_CHANNELS = 4
 LEARNING_RATE = 0.0001
 DECAY = 0.85
 STEP_COUNT = 4000
-STARTING_EPSILON = 0.8
+STARTING_EPSILON = 1
 early_stopping_patience = 35
-learning_iterations = 100
+learning_iterations = 51
 
 def save_checkpoint(model, target_model, replay_buffer, total_reward, high_episode_reward, epoch, model_path='robot_final_epoch_data.pth', buffer_prefix='robot_replay_buffer'):
     torch.save({
@@ -90,15 +90,16 @@ if all(os.path.exists(f'{buffer_prefix}_{name}.pth') for name in ['states','acti
     meta = torch.load(meta_path, map_location=device)
     N = meta.get('position', BUFFER_SIZE//2)
     replay_buffer.full = meta.get('full', False)
+    replay_buffer.position = N
     print(replay_buffer.full)
     if replay_buffer.full:
         N = meta.get('capacity', N)
+        replay_buffer.position = torch.randint(BUFFER_SIZE, (1,))[0]
     replay_buffer.states[:N] = torch.load(f'{buffer_prefix}_states.pth', map_location=device)[:N]
     replay_buffer.actions[:N] = torch.load(f'{buffer_prefix}_actions.pth', map_location=device)[:N]
     replay_buffer.rewards[:N] = torch.load(f'{buffer_prefix}_rewards.pth', map_location=device)[:N]
     replay_buffer.next_states[:N] = torch.load(f'{buffer_prefix}_next_states.pth', map_location=device)[:N]
     replay_buffer.dones[:N] = torch.load(f'{buffer_prefix}_dones.pth', map_location=device)[:N]
-    replay_buffer.position = N
     print(f"Replay buffer loaded with {N} samples.")
 else:
     print("No replay buffer found. Starting with empty buffer.")
@@ -121,6 +122,7 @@ while epoch < EPOCHS and not stopped:
     total_reward = 0
     high_episode_reward = 0
     env.episode_steps = 0
+    stp = 0
     prev_state = None
     last_reward = 0
     done = False
@@ -171,14 +173,16 @@ while epoch < EPOCHS and not stopped:
                 replay_buffer.add(prev_state.cpu().numpy(), action, reward, state_tensor.cpu().numpy(), done) if prev_state is not None else None
             prev_state = state_tensor.clone()
             state = next_state
-            env.episode_steps += 1
+            stp += 1
             last_reward = reward
             print(f"step: {env.episode_steps}, reward: {reward:.2f}, action: {action}, idx: {replay_buffer.position % replay_buffer.capacity}",)
         expert_seeded = True
-        print(f"expert seeding done:\navgr reward:{total_reward/env.episode_steps}")
+        print(f"expert seeding done:\navgr reward:{total_reward/stp}")
         continue
     done = False
     env.episode_steps = 0
+    stp = 0
+    total_reward = 0
     print(f"episode: {epoch} starting...")
     while not done:
         use_next = True
@@ -224,7 +228,7 @@ while epoch < EPOCHS and not stopped:
 
         print(f"step: {env.episode_steps}, reward: {reward:.2f}, action: {action} \nQ: {decision}, idx: {replay_buffer.position % replay_buffer.capacity}",)
         state = next_state
-        env.episode_steps += 1
+        stp += 1
         last_reward = reward
     POLICY.update_epsilon()
     env.step(0)    
@@ -238,11 +242,11 @@ while epoch < EPOCHS and not stopped:
         if i % TARGET_UPDATE_FREQUENCY == 0 and i > 0:
             model.update_target(target_model)
 
-        if i % (learning_iterations//4) == 0 and i > 0:
+        if i % (learning_iterations/2) == 0 and i > 0:
             save_checkpoint(model, target_model, replay_buffer, total_reward, high_episode_reward, epoch)
 
-    writer.add_scalar('Reward/total_reward', total_reward/env.episode_steps if env.episode_steps > 0 else 0, epoch)
-    print(f"\nEpoch {epoch} - Total Reward: {total_reward/env.episode_steps if env.episode_steps > 0 else 0}")
+    writer.add_scalar('Reward/total_reward', total_reward/stp if stp > 0 else 0, epoch)
+    print(f"\nEpoch {epoch} - Total Reward: {total_reward/stp if stp > 0 else 0}")
     epoch += 1
     if total_reward > best_reward:
         best_reward = total_reward

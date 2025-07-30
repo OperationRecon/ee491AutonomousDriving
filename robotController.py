@@ -1,6 +1,5 @@
 import socket
 import json
-import pyglet
 import threading
 import cv2
 import requests

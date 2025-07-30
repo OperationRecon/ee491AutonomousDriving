@@ -17,10 +17,6 @@ class Replay_Buffer():
 
     def add(self, state, action, reward, next_state, done):
         idx = (self.position % self.capacity) -1
-        if idx >= self.capacity - 1:
-            self.position = 0
-            idx = 0
-            self.full = True
         try:
             self.states[idx -1] = torch.from_numpy(state).to(device)
             self.actions[idx -1] = torch.tensor(action, dtype=torch.int64, device=device)

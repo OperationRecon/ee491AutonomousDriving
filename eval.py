@@ -52,7 +52,7 @@ env.episode_steps = 0
 env.episode_steps = 0
 done = False
 state = env.reset()
-
+total_reward = 0
 while not done:
     env.render()
     # DQN decision
@@ -65,6 +65,7 @@ while not done:
     if action == 0:
         action = torch.argmax(decision[:, 1:]).item() + 1
     next_state, reward, done, info = env.step(action)
+    total_reward += reward
     state = next_state
     key = cv2.waitKey(1) & 0xFF
     if key == ord('r'):
@@ -83,5 +84,5 @@ while not done:
 
     print(f"step: {env.episode_steps}, reward: {reward:.2f}, action: {action} \nQ: {decision}",)
     env.episode_steps += 1
-
+print(f'{total_reward/env.episode_steps}')
 env.step(0)    
