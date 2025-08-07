@@ -18,7 +18,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.set_default_device(device)
 
 EPOCHS = 20
-TARGET_UPDATE_FREQUENCY = 50
+TARGET_UPDATE_FREQUENCY = 2
 SAMPLE_SIZE = 2000
 BATCH_SIZE = 500
 BUFFER_SIZE = 10000
@@ -28,7 +28,7 @@ DECAY = 0.85
 STEP_COUNT = 4000
 STARTING_EPSILON = 1
 early_stopping_patience = 35
-learning_iterations = 51
+learning_iterations = 10
 
 def save_checkpoint(model, target_model, replay_buffer, total_reward, high_episode_reward, epoch, model_path='robot_final_epoch_data.pth', buffer_prefix='robot_replay_buffer'):
     torch.save({
@@ -239,12 +239,12 @@ while epoch < EPOCHS and not stopped:
         writer.add_scalar('Loss/model', loss, epoch * learning_iterations + i)
         print(f"Learning... {i}/{learning_iterations}", end='\r',flush=True)
 
-        if i % TARGET_UPDATE_FREQUENCY == 0 and i > 0:
-            model.update_target(target_model)
 
         if i % (learning_iterations/2) == 0 and i > 0:
             save_checkpoint(model, target_model, replay_buffer, total_reward, high_episode_reward, epoch)
-
+            
+    if epoch % TARGET_UPDATE_FREQUENCY == 0 and epoch > 0:
+            model.update_target(target_model)
     writer.add_scalar('Reward/total_reward', total_reward/stp if stp > 0 else 0, epoch)
     print(f"\nEpoch {epoch} - Total Reward: {total_reward/stp if stp > 0 else 0}")
     epoch += 1

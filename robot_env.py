@@ -12,9 +12,9 @@ ROBOT_PORT = 100
 
 motor_map = {
     0: [0, 0],        # Stop
-    1: [100, 100],    # Forward
-    2: [120, 10],     # Turn Left
-    3: [10, 120],     # Turn Right
+    1: [60, 60],    # Forward
+    2: [80, 10],     # Turn Left
+    3: [10, 80],     # Turn Right
 }
 
 def center_reward(ir_val):
@@ -96,7 +96,7 @@ class RobotEnv(gym.Env):
                 # Resize to (150, 200)
                 img = cv2.resize(img, (200, 150), interpolation=cv2.INTER_AREA)
                 collected.append(img)
-                time.sleep(0.05)
+                time.sleep(0.02)
         stacked = np.stack(collected, axis=-1)
         return stacked
 
